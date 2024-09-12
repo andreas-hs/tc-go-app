@@ -1,0 +1,18 @@
+# Docker
+docker-compose.override.yml
+.docker/
+
+# IDE and Editor settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+*.tmp
+
+# OS specific files
+.DS_Store
+Thumbs.db

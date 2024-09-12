@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  go-app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    env_file:
+      - ../nd-common-infra/.env
+      - local.env
+    volumes:
+      - .:/app
+    networks:
+      - new-dealigence
+
+networks:
+  new-dealigence:
+    external: true
