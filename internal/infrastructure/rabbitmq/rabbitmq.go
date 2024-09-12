@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"fmt"
+	"github.com/streadway/amqp"
 )
 
 func SetupRabbitMQ(url string) (*amqp.Channel, *amqp.Connection, error) {
