@@ -18,3 +18,9 @@ type SourceData struct {
 type DestinationData struct {
 	DataItem
 }
+
+type ProcessedData struct {
+	ID          uint      `gorm:"primaryKey"`
+	SourceID    uint      `gorm:"unique"`
+	ProcessedAt time.Time `gorm:"autoUpdateTime"`
+}
