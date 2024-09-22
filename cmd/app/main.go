@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/andreas-hs/tc-go-app/internal/config"
 	"github.com/andreas-hs/tc-go-app/internal/dependencies"
@@ -13,6 +14,10 @@ import (
 	"github.com/andreas-hs/tc-go-app/internal/logging"
 	"github.com/andreas-hs/tc-go-app/internal/services"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	numGeneratedRecords = 10000
 )
 
 func main() {
@@ -44,6 +49,18 @@ func main() {
 		RabbitConn: rabbitConn,
 		RabbitCh:   rabbitChannel,
 	}
+
+	logger.Println("Application is starting...")
+
+	go func() {
+		for {
+			err := services.TriggerDataGeneration(ctx, deps, numGeneratedRecords)
+			if err != nil {
+				logging.LogError(logger, "Error generating data", err)
+			}
+			time.Sleep(time.Second)
+		}
+	}()
 
 	dataProcessor := services.NewDataProcessor(deps)
 
