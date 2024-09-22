@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/andreas-hs/tc-go-app/internal/dependencies"
-	"github.com/andreas-hs/tc-go-app/internal/infrastructure/database"
 	"github.com/andreas-hs/tc-go-app/internal/infrastructure/rabbitmq"
 	"github.com/andreas-hs/tc-go-app/internal/logging"
 	"github.com/andreas-hs/tc-go-app/internal/models"
@@ -107,8 +106,13 @@ func (dp *DataProcessor) worker(msgs <-chan amqp.Delivery) {
 
 func (dp *DataProcessor) saveBatch(dataBatch []models.DataItem) {
 	var lastError error
+	orm, err := dp.deps.DB.GetConnection()
+	if err != nil {
+		logging.LogFatal(dp.deps.Logger, "failed to connect to database: %w", err)
+		return
+	}
 	for retry := 0; retry < maxRetries; retry++ {
-		err := dp.deps.DB.Transaction(func(tx *gorm.DB) error {
+		err := orm.Transaction(func(tx *gorm.DB) error {
 			return tx.Create(&dataBatch).Error
 		})
 		if err == nil {
@@ -126,13 +130,19 @@ func (dp *DataProcessor) saveBatch(dataBatch []models.DataItem) {
 }
 
 func (dp *DataProcessor) saveRecordsIndividually(records []models.DataItem) {
+	orm, err := dp.deps.DB.GetConnection()
+	if err != nil {
+		logging.LogFatal(dp.deps.Logger, "failed to connect to database: %w", err)
+		return
+	}
+
 	var ids []uint
 	for _, record := range records {
 		ids = append(ids, record.ID)
 	}
 
 	var existingRecords []models.DataItem
-	if err := dp.deps.DB.Where("id IN ?", ids).Find(&existingRecords).Error; err != nil {
+	if err := orm.Where("id IN ?", ids).Find(&existingRecords).Error; err != nil {
 		logging.LogError(dp.deps.Logger, "Error fetching existing records", err)
 		return
 	}
@@ -147,7 +157,7 @@ func (dp *DataProcessor) saveRecordsIndividually(records []models.DataItem) {
 			continue
 		}
 
-		err := dp.deps.DB.Transaction(func(tx *gorm.DB) error {
+		err := orm.Transaction(func(tx *gorm.DB) error {
 			if err := tx.Create(&record).Error; err != nil && !errors.Is(err, gorm.ErrDuplicatedKey) {
 				return err
 			}
@@ -179,7 +189,7 @@ func (dp *DataProcessor) Stop() error {
 	dp.dataBatchMu.Unlock() // Unlock after processing
 
 	// Close database connection
-	if err := database.CloseDatabase(dp.deps.DB); err != nil {
+	if err := dp.deps.DB.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("database shutdown error: %w", err))
 	}
 

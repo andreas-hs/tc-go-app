@@ -1,6 +1,5 @@
 # Variables
-DOCKER_COMPOSE = docker-compose
-COMMON_INFRA_DIR = ../nd-common-infra
+DOCKER_COMPOSE = docker compose
 
 # Targets
 .PHONY: up down logs

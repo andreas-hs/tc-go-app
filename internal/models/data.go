@@ -10,3 +10,11 @@ type DataItem struct {
 	Description string
 	CreatedAt   time.Time
 }
+
+type SourceData struct {
+	DataItem
+}
+
+type DestinationData struct {
+	DataItem
+}

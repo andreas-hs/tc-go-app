@@ -1,14 +1,14 @@
 package dependencies
 
 import (
+	"github.com/andreas-hs/tc-go-app/internal/infrastructure/database"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
-	"gorm.io/gorm"
 )
 
 type Dependencies struct {
 	Logger     *logrus.Logger
-	DB         *gorm.DB
+	DB         database.Database
 	RabbitConn *amqp.Connection
 	RabbitCh   *amqp.Channel
 }

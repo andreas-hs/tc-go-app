@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/andreas-hs/tc-go-app/internal/config"
 	"github.com/andreas-hs/tc-go-app/internal/dependencies"
 	"github.com/andreas-hs/tc-go-app/internal/infrastructure/database"
@@ -9,9 +13,6 @@ import (
 	"github.com/andreas-hs/tc-go-app/internal/logging"
 	"github.com/andreas-hs/tc-go-app/internal/services"
 	"github.com/sirupsen/logrus"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
@@ -26,7 +27,8 @@ func main() {
 		logging.LogFatal(logger, "Configuration loading error", err)
 	}
 
-	db, err := database.ConnectDatabase(cfg.DbDSN)
+	var db database.Database = &database.PostgresDatabase{}
+	_, err = db.Connect(cfg.DbDSN)
 	if err != nil {
 		logging.LogFatal(logger, "Database connection error", err)
 	}
@@ -54,8 +56,7 @@ func main() {
 		logging.LogInfo(logger, "Received shutdown signal, closing application...")
 		cancel()
 
-		err := dataProcessor.Stop()
-		if err != nil {
+		if err := dataProcessor.Stop(); err != nil {
 			logging.LogError(logger, "Error stopping data processor", err)
 		}
 	}()

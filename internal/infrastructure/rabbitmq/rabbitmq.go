@@ -3,21 +3,45 @@ package rabbitmq
 import (
 	"fmt"
 	"github.com/streadway/amqp"
+	"time"
 )
 
 func SetupRabbitMQ(url string) (*amqp.Channel, *amqp.Connection, error) {
-	conn, err := amqp.Dial(url)
+	var conn *amqp.Connection
+	var err error
+
+	for attempts := 0; attempts < 3; attempts++ {
+		conn, err = amqp.Dial(url)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Duration(3+attempts*2) * time.Second) // 3, 5, 7 seconds
+	}
+
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+		return nil, nil, fmt.Errorf("failed to connect to RabbitMQ after 3 attempts: %w", err)
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		err := conn.Close()
-		if err != nil {
-			return nil, nil, err
-		}
+		_ = conn.Close()
 		return nil, nil, fmt.Errorf("failed to open RabbitMQ channel: %w", err)
+	}
+
+	// Declare the queue
+	_, err = ch.QueueDeclare(
+		"source_data_queue",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+
+	if err != nil {
+		_ = ch.Close()
+		_ = conn.Close()
+		return nil, nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
 
 	return ch, conn, nil

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   go-app:
     container_name: tc-go-app
@@ -22,9 +20,8 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    env_file:
+      - .env
     networks:
       - tacans
 
