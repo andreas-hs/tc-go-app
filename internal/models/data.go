@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type DestinationData struct {
+type DataItem struct {
 	ID          uint `gorm:"primaryKey"`
 	Name        string
 	Description string

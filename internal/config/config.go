@@ -9,7 +9,7 @@ import (
 )
 
 type Config struct {
-	MySQLDSN    string
+	DbDSN       string
 	RabbitMQURL string
 }
 
@@ -35,11 +35,11 @@ func loadConfig() (*Config, error) {
 	}
 
 	cfg := &Config{
-		MySQLDSN:    viper.GetString("MYSQL_DSN"),
+		DbDSN:       viper.GetString("DB_DSN"),
 		RabbitMQURL: viper.GetString("RABBITMQ_URL"),
 	}
 
-	if cfg.MySQLDSN == "" || cfg.RabbitMQURL == "" {
+	if cfg.DbDSN == "" || cfg.RabbitMQURL == "" {
 		return nil, fmt.Errorf("required environment variables are missing")
 	}
 

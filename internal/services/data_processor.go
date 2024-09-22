@@ -30,7 +30,8 @@ type DataProcessor struct {
 	rabbitChannel *amqp.Channel
 	rabbitConn    *amqp.Connection
 	workerPool    chan struct{}
-	dataBatch     []models.DestinationData
+	dataBatch     []models.DataItem
+	dataBatchMu   sync.Mutex
 }
 
 func NewDataProcessor(deps *dependencies.Dependencies) *DataProcessor {
@@ -77,18 +78,24 @@ func (dp *DataProcessor) worker(msgs <-chan amqp.Delivery) {
 			dp.workerPool <- struct{}{}
 			go func(msg amqp.Delivery) {
 				defer func() { <-dp.workerPool }()
-				var data models.DestinationData
+				var data models.DataItem
 				if err := json.Unmarshal(msg.Body, &data); err != nil {
 					_ = msg.Nack(false, false)
 					return
 				}
+
+				// Lock for dataBatch access
+				dp.dataBatchMu.Lock()
+				defer dp.dataBatchMu.Unlock()
 				dp.dataBatch = append(dp.dataBatch, data)
+
 				if len(dp.dataBatch) >= batchSize {
 					dp.saveBatch(dp.dataBatch)
 					dp.dataBatch = nil
 				}
 				_ = msg.Ack(false)
 			}(msg)
+
 		case <-flushTimer.C:
 			if len(dp.dataBatch) > 0 {
 				dp.saveBatch(dp.dataBatch)
@@ -98,33 +105,33 @@ func (dp *DataProcessor) worker(msgs <-chan amqp.Delivery) {
 	}
 }
 
-func (dp *DataProcessor) saveBatch(dataBatch []models.DestinationData) {
+func (dp *DataProcessor) saveBatch(dataBatch []models.DataItem) {
 	var lastError error
 	for retry := 0; retry < maxRetries; retry++ {
 		err := dp.deps.DB.Transaction(func(tx *gorm.DB) error {
 			return tx.Create(&dataBatch).Error
 		})
 		if err == nil {
-			lastError = nil
-			break
-		} else {
-			lastError = err
-			time.Sleep(time.Duration(retry) * time.Second)
+			return // Successfully saved
 		}
+
+		lastError = err
+		time.Sleep(time.Duration(retry) * time.Second)
 	}
 
 	if lastError != nil {
+		logging.LogError(dp.deps.Logger, "Failed to save batch, retrying individually", lastError)
 		dp.saveRecordsIndividually(dataBatch)
 	}
 }
 
-func (dp *DataProcessor) saveRecordsIndividually(records []models.DestinationData) {
+func (dp *DataProcessor) saveRecordsIndividually(records []models.DataItem) {
 	var ids []uint
 	for _, record := range records {
 		ids = append(ids, record.ID)
 	}
 
-	var existingRecords []models.DestinationData
+	var existingRecords []models.DataItem
 	if err := dp.deps.DB.Where("id IN ?", ids).Find(&existingRecords).Error; err != nil {
 		logging.LogError(dp.deps.Logger, "Error fetching existing records", err)
 		return
@@ -161,14 +168,17 @@ func (dp *DataProcessor) Stop() error {
 		errs = append(errs, fmt.Errorf("RabbitMQ shutdown error: %w", err))
 	}
 
-	dp.wg.Wait()
+	dp.wg.Wait() // Wait for all workers to finish
 
 	// Save any remaining batches that have not been processed
+	dp.dataBatchMu.Lock()
 	if len(dp.dataBatch) > 0 {
 		dp.saveBatch(dp.dataBatch)
 		dp.dataBatch = nil
 	}
+	dp.dataBatchMu.Unlock() // Unlock after processing
 
+	// Close database connection
 	if err := database.CloseDatabase(dp.deps.DB); err != nil {
 		errs = append(errs, fmt.Errorf("database shutdown error: %w", err))
 	}
