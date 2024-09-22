@@ -29,7 +29,7 @@ type DataProcessor struct {
 	rabbitChannel *amqp.Channel
 	rabbitConn    *amqp.Connection
 	workerPool    chan struct{}
-	dataBatch     []models.DataItem
+	dataBatch     []models.DestinationData
 	dataBatchMu   sync.Mutex
 }
 
@@ -77,13 +77,12 @@ func (dp *DataProcessor) worker(msgs <-chan amqp.Delivery) {
 			dp.workerPool <- struct{}{}
 			go func(msg amqp.Delivery) {
 				defer func() { <-dp.workerPool }()
-				var data models.DataItem
+				var data models.DestinationData
 				if err := json.Unmarshal(msg.Body, &data); err != nil {
 					_ = msg.Nack(false, false)
 					return
 				}
 
-				// Lock for dataBatch access
 				dp.dataBatchMu.Lock()
 				defer dp.dataBatchMu.Unlock()
 				dp.dataBatch = append(dp.dataBatch, data)
@@ -104,9 +103,10 @@ func (dp *DataProcessor) worker(msgs <-chan amqp.Delivery) {
 	}
 }
 
-func (dp *DataProcessor) saveBatch(dataBatch []models.DataItem) {
+func (dp *DataProcessor) saveBatch(dataBatch []models.DestinationData) {
 	var lastError error
 	orm, err := dp.deps.DB.GetConnection()
+
 	if err != nil {
 		logging.LogFatal(dp.deps.Logger, "failed to connect to database: %w", err)
 		return
@@ -129,10 +129,10 @@ func (dp *DataProcessor) saveBatch(dataBatch []models.DataItem) {
 	}
 }
 
-func (dp *DataProcessor) saveRecordsIndividually(records []models.DataItem) {
-	orm, err := dp.deps.DB.GetConnection()
-	if err != nil {
-		logging.LogFatal(dp.deps.Logger, "failed to connect to database: %w", err)
+func (dp *DataProcessor) saveRecordsIndividually(records []models.DestinationData) {
+	orm, connErr := dp.deps.DB.GetConnection()
+	if connErr != nil {
+		logging.LogFatal(dp.deps.Logger, "failed to connect to database: %w", connErr)
 		return
 	}
 
@@ -161,11 +161,11 @@ func (dp *DataProcessor) saveRecordsIndividually(records []models.DataItem) {
 			if err := tx.Create(&record).Error; err != nil && !errors.Is(err, gorm.ErrDuplicatedKey) {
 				return err
 			}
-			return nil
+			// Mark as pressed
+			return tx.Create(&models.ProcessedData{SourceID: record.ID}).Error
 		})
-
 		if err != nil {
-			logging.LogError(dp.deps.Logger, "Failed to process record after duplicate error", err)
+			logging.LogError(dp.deps.Logger, "Skipped duplicate record", err)
 		}
 	}
 }

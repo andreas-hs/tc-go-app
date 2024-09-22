@@ -1,4 +1,4 @@
-### TC Go Application
+# TC Go Application
 
 ---
 
@@ -6,6 +6,14 @@
 This application stores, processes, and manages data efficiently.
 
 ---
+
+## Quick start quid
+
+### Monitoring
+Use [RabbitMQ UI](http://localhost:15672) to monitor queue.
+- login: `guest`
+- pass: `guest`
+
 
 **Functionality**
 

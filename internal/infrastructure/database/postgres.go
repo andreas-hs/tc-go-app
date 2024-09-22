@@ -28,7 +28,11 @@ func (p *PostgresDatabase) Connect(dsn string) (*gorm.DB, error) {
 	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 
 	// AutoMigrate for source_data and destination_data tables
-	if err := db.AutoMigrate(&models.SourceData{}, &models.DestinationData{}); err != nil {
+	if err := db.AutoMigrate(
+		&models.SourceData{},
+		&models.DestinationData{},
+		&models.ProcessedData{},
+	); err != nil {
 		return nil, fmt.Errorf("auto migrate error: %w", err)
 	}
 
