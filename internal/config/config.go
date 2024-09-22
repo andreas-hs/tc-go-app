@@ -27,7 +27,7 @@ func GetConfig() (*Config, error) {
 func loadConfig() (*Config, error) {
 	_, filename, _, _ := runtime.Caller(0)
 	projectDir := filepath.Dir(filepath.Dir(filepath.Dir(filename)))
-	viper.SetConfigFile(filepath.Join(projectDir, "local.env"))
+	viper.SetConfigFile(filepath.Join(projectDir, ".env"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {

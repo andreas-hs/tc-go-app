@@ -26,7 +26,7 @@ func main() {
 		logging.LogFatal(logger, "Configuration loading error", err)
 	}
 
-	db, err := database.SetupDatabase(cfg.MySQLDSN)
+	db, err := database.ConnectDatabase(cfg.MySQLDSN)
 	if err != nil {
 		logging.LogFatal(logger, "Database connection error", err)
 	}
