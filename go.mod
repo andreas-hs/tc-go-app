@@ -1,4 +1,4 @@
-module github.com/andreas-hs/nd-go-app
+module github.com/andreas-hs/tc-go-app
 
 go 1.22.6
 

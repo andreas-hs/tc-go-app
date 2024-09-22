@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"github.com/andreas-hs/nd-go-app/internal/config"
-	"github.com/andreas-hs/nd-go-app/internal/dependencies"
-	"github.com/andreas-hs/nd-go-app/internal/infrastructure/database"
-	"github.com/andreas-hs/nd-go-app/internal/infrastructure/rabbitmq"
-	"github.com/andreas-hs/nd-go-app/internal/logging"
-	"github.com/andreas-hs/nd-go-app/internal/services"
+	"github.com/andreas-hs/tc-go-app/internal/config"
+	"github.com/andreas-hs/tc-go-app/internal/dependencies"
+	"github.com/andreas-hs/tc-go-app/internal/infrastructure/database"
+	"github.com/andreas-hs/tc-go-app/internal/infrastructure/rabbitmq"
+	"github.com/andreas-hs/tc-go-app/internal/logging"
+	"github.com/andreas-hs/tc-go-app/internal/services"
 	"github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
