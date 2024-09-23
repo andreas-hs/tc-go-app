@@ -165,7 +165,7 @@ func (dp *DataProcessor) saveRecordsIndividually(records []models.DestinationDat
 				Columns:   []clause.Column{{Name: "id"}},
 				DoUpdates: clause.AssignmentColumns([]string{"name", "description", "created_at"}),
 			}).Create(&record).Error; err != nil {
-				return fmt.Errorf("error saving record with ID %d: %w", record.ID)
+				return fmt.Errorf("error saving record with ID %d: %w", record.ID, err)
 			}
 			return tx.Create(&models.ProcessedData{SourceID: record.ID}).Error
 		})
