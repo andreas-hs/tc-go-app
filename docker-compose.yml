@@ -13,6 +13,9 @@ services:
       - .:/app
     networks:
       - tacans
+    depends_on:
+      - postgres
+      - rabbitmq
 
   rabbitmq:
     image: rabbitmq:3-management
