@@ -11,16 +11,18 @@ import (
 	"github.com/andreas-hs/tc-go-app/internal/models"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"sync"
 	"time"
 )
 
 const (
-	queueName      = "source_data_queue"
-	batchSize      = 100
-	maxRetries     = 3
-	workerPoolSize = 5
-	prefetchSize   = 10 // QoS prefetch count
+	queueName         = "source_data_queue"
+	batchSize         = 100
+	generateBatchSize = 100
+	maxRetries        = 2
+	workerPoolSize    = 5
+	prefetchSize      = 10 // QoS prefetch count
 )
 
 type DataProcessor struct {
@@ -86,7 +88,6 @@ func (dp *DataProcessor) worker(msgs <-chan amqp.Delivery) {
 				dp.dataBatchMu.Lock()
 				defer dp.dataBatchMu.Unlock()
 				dp.dataBatch = append(dp.dataBatch, data)
-
 				if len(dp.dataBatch) >= batchSize {
 					dp.saveBatch(dp.dataBatch)
 					dp.dataBatch = nil
@@ -95,25 +96,47 @@ func (dp *DataProcessor) worker(msgs <-chan amqp.Delivery) {
 			}(msg)
 
 		case <-flushTimer.C:
+			dp.dataBatchMu.Lock()
 			if len(dp.dataBatch) > 0 {
 				dp.saveBatch(dp.dataBatch)
 				dp.dataBatch = nil
 			}
+			dp.dataBatchMu.Unlock()
 		}
 	}
 }
 
 func (dp *DataProcessor) saveBatch(dataBatch []models.DestinationData) {
 	var lastError error
-	orm, err := dp.deps.DB.GetConnection()
+	orm, connErr := dp.deps.DB.GetConnection()
 
-	if err != nil {
-		logging.LogFatal(dp.deps.Logger, "failed to connect to database: %w", err)
+	if connErr != nil {
+		logging.LogFatal(dp.deps.Logger, "failed to connect to database: %w", connErr)
 		return
 	}
+
+	processedDataBatch := make([]models.ProcessedData, len(dataBatch))
+	for i, record := range dataBatch {
+		processedDataBatch[i] = models.ProcessedData{SourceID: record.ID}
+	}
+
 	for retry := 0; retry < maxRetries; retry++ {
 		err := orm.Transaction(func(tx *gorm.DB) error {
-			return tx.Create(&dataBatch).Error
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"name", "description", "created_at"}),
+			}).Create(&dataBatch).Error; err != nil {
+				if errors.Is(err, gorm.ErrDuplicatedKey) {
+					dp.saveRecordsIndividually(dataBatch)
+					return nil
+				}
+				return err
+			}
+			// Only save processedDataBatch for successfully saved dataBatch
+			if err := tx.Create(&processedDataBatch).Error; err != nil {
+				return err
+			}
+			return nil
 		})
 		if err == nil {
 			return // Successfully saved
@@ -136,36 +159,18 @@ func (dp *DataProcessor) saveRecordsIndividually(records []models.DestinationDat
 		return
 	}
 
-	var ids []uint
 	for _, record := range records {
-		ids = append(ids, record.ID)
-	}
-
-	var existingRecords []models.DataItem
-	if err := orm.Where("id IN ?", ids).Find(&existingRecords).Error; err != nil {
-		logging.LogError(dp.deps.Logger, "Error fetching existing records", err)
-		return
-	}
-
-	existingIDs := make(map[uint]struct{})
-	for _, record := range existingRecords {
-		existingIDs[record.ID] = struct{}{}
-	}
-
-	for _, record := range records {
-		if _, exists := existingIDs[record.ID]; exists {
-			continue
-		}
-
 		err := orm.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&record).Error; err != nil && !errors.Is(err, gorm.ErrDuplicatedKey) {
-				return err
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"name", "description", "created_at"}),
+			}).Create(&record).Error; err != nil {
+				return fmt.Errorf("error saving record with ID %d: %w", record.ID)
 			}
-			// Mark as pressed
 			return tx.Create(&models.ProcessedData{SourceID: record.ID}).Error
 		})
 		if err != nil {
-			logging.LogError(dp.deps.Logger, "Skipped duplicate record", err)
+			logging.LogError(dp.deps.Logger, "Error saving record", nil)
 		}
 	}
 }

@@ -54,29 +54,16 @@ func (g *DataGenerator) generateAndSend(numRecords int) error {
 		sourceDataBatch = append(sourceDataBatch, data)
 	}
 
-	// Attempt to write to DB with retries
-	maxDBRetries := 3
-	var lastError error
-	for attempt := 1; attempt <= maxDBRetries; attempt++ {
-		orm, err := g.db.GetConnection()
-		if err != nil {
-			lastError = fmt.Errorf("failed to get database connection: %w", err)
-			time.Sleep(time.Duration(attempt) * time.Second)
-			continue
+	// Save data in batches
+	for i := 0; i < len(sourceDataBatch); i += generateBatchSize {
+		end := i + generateBatchSize
+		if end > len(sourceDataBatch) {
+			end = len(sourceDataBatch)
 		}
 
-		if err := orm.Create(&sourceDataBatch).Error; err != nil {
-			lastError = fmt.Errorf("failed to save source data, attempt %d: %w", attempt, err)
-			time.Sleep(time.Duration(attempt) * time.Second)
-		} else {
-			lastError = nil
-			break
+		if err := g.saveBatch(sourceDataBatch[i:end]); err != nil {
+			return err
 		}
-	}
-
-	if lastError != nil {
-		fmt.Printf("All attempts to save data failed: %v\n", lastError)
-		return lastError
 	}
 
 	// Send data to RabbitMQ
@@ -88,6 +75,19 @@ func (g *DataGenerator) generateAndSend(numRecords int) error {
 		if err := g.rabbitCh.Publish("", queueName, false, false, amqp.Publishing{Body: body}); err != nil {
 			return fmt.Errorf("failed to publish message to RabbitMQ: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (g *DataGenerator) saveBatch(batch []models.SourceData) error {
+	orm, err := g.db.GetConnection()
+	if err != nil {
+		return fmt.Errorf("failed to get database connection: %w", err)
+	}
+
+	if err := orm.Create(&batch).Error; err != nil {
+		return fmt.Errorf("failed to save batch of source data: %w", err)
 	}
 
 	return nil

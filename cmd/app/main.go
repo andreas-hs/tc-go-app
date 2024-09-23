@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	numGeneratedRecords = 10000
+	numGeneratedRecords = 1000
 )
 
 func main() {
@@ -50,7 +50,7 @@ func main() {
 		RabbitCh:   rabbitChannel,
 	}
 
-	logger.Println("Application is starting...")
+	logger.Println("Application is running...")
 
 	go func() {
 		for {
