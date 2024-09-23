@@ -9,13 +9,13 @@ This application stores, processes, and manages data efficiently.
 
 ## Quick start quid
 
-### Monitoring
+## Monitoring
 Use [RabbitMQ UI](http://localhost:15672) to monitor queue.
 - login: `guest`
 - pass: `guest`
 
 
-**Functionality**
+## Functionality
 
 1. **Data Storage**:
     - The application creates a `source_data` table with the following fields:
@@ -47,7 +47,7 @@ Use [RabbitMQ UI](http://localhost:15672) to monitor queue.
 
 ---
 
-**Data Flow**
+## Data Flow
 1. The application creates records in the `source_data` table and sends them to RabbitMQ.
 2. It listens for messages from RabbitMQ, processes the data, and writes it to the `destination_data` table.
 3. By sharing the same database, the application ensures a seamless and efficient data management process.
