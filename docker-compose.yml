@@ -3,7 +3,7 @@ services:
     container_name: tc-go-app
     build:
       context: .
-      target: dev
+      target: prod
     env_file:
       - .env
     ports:

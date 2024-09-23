@@ -133,7 +133,10 @@ func (dp *DataProcessor) saveBatch(dataBatch []models.DestinationData) {
 				return err
 			}
 			// Only save processedDataBatch for successfully saved dataBatch
-			if err := tx.Create(&processedDataBatch).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "source_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"source_id"}),
+			}).Create(&processedDataBatch).Error; err != nil {
 				return err
 			}
 			return nil
@@ -167,8 +170,12 @@ func (dp *DataProcessor) saveRecordsIndividually(records []models.DestinationDat
 			}).Create(&record).Error; err != nil {
 				return fmt.Errorf("error saving record with ID %d: %w", record.ID, err)
 			}
-			return tx.Create(&models.ProcessedData{SourceID: record.ID}).Error
+			return tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "source_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"source_id"}),
+			}).Create(&models.ProcessedData{SourceID: record.ID}).Error
 		})
+
 		if err != nil {
 			logging.LogError(dp.deps.Logger, "Error saving record", nil)
 		}
