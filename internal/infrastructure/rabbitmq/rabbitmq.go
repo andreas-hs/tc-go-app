@@ -10,16 +10,16 @@ func SetupRabbitMQ(url string) (*amqp.Channel, *amqp.Connection, error) {
 	var conn *amqp.Connection
 	var err error
 
-	for attempts := 0; attempts < 5; attempts++ {
+	for attempts := 0; attempts < 100; attempts++ {
 		conn, err = amqp.Dial(url)
 		if err == nil {
 			break
 		}
-		time.Sleep(time.Duration(60+attempts*2) * time.Second)
+		time.Sleep(time.Duration(5+attempts*2) * time.Second)
 	}
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to RabbitMQ after 3 attempts: %w", err)
+		return nil, nil, fmt.Errorf("failed to connect to RabbitMQ after 100 attempts: %w", err)
 	}
 
 	ch, err := conn.Channel()
