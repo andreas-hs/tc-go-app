@@ -13,9 +13,22 @@ type PostgresDatabase struct {
 }
 
 func (p *PostgresDatabase) Connect(dsn string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	var db *gorm.DB
+	var err error
+
+	for attempts := 0; attempts < 100; attempts++ {
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		if err == nil {
+			break
+		}
+
+		if attempts < 99 {
+			time.Sleep(3 * time.Second)
+		}
+	}
+
 	if err != nil {
-		return nil, fmt.Errorf("gorm open error: %w", err)
+		return nil, fmt.Errorf("DB conect error after 100 attempts: %w", err)
 	}
 
 	sqlDB, err := db.DB()
