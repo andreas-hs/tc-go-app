@@ -15,7 +15,7 @@ func SetupRabbitMQ(url string) (*amqp.Channel, *amqp.Connection, error) {
 		if err == nil {
 			break
 		}
-		time.Sleep(time.Duration(3+attempts*2) * time.Second) // 3, 5, 7 seconds
+		time.Sleep(time.Duration(15+attempts*2) * time.Second)
 	}
 
 	if err != nil {
