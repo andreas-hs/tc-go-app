@@ -10,12 +10,12 @@ func SetupRabbitMQ(url string) (*amqp.Channel, *amqp.Connection, error) {
 	var conn *amqp.Connection
 	var err error
 
-	for attempts := 0; attempts < 3; attempts++ {
+	for attempts := 0; attempts < 5; attempts++ {
 		conn, err = amqp.Dial(url)
 		if err == nil {
 			break
 		}
-		time.Sleep(time.Duration(15+attempts*2) * time.Second)
+		time.Sleep(time.Duration(30+attempts*2) * time.Second)
 	}
 
 	if err != nil {
